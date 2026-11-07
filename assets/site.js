@@ -29,6 +29,27 @@
     items.forEach(function (el) { io.observe(el); });
   }
 
+  // Count numbers up from zero once they're on screen (the real value is in the HTML already).
+  var counters = document.querySelectorAll('[data-count]');
+  if (counters.length && 'IntersectionObserver' in window && !calm) {
+    var run = function (el) {
+      var to = parseInt(el.getAttribute('data-count'), 10) || 0, t0 = null;
+      var step = function (t) {
+        if (t0 === null) t0 = t;
+        var p = Math.min(1, (t - t0) / 1200);
+        el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      setTimeout(function () { requestAnimationFrame(step); }, 500);
+    };
+    var co = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { run(entry.target); co.unobserve(entry.target); }
+      });
+    }, { threshold: 0.6 });
+    counters.forEach(function (el) { el.textContent = '0'; co.observe(el); });
+  }
+
   var year = document.querySelector('[data-year]');
   if (year) year.textContent = new Date().getFullYear();
 })();

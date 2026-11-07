@@ -11,8 +11,15 @@
   var CANADA = { center: [56.1, -96.3], zoom: 4 };
   var GYM_MIN_ZOOM = 11;      // gyms load only when this zoomed in (keeps Overpass queries small)
   var GYM_LIMIT = 150;
-  // Public Overpass servers, tried in order (the main overpass-api.de server is often overloaded).
-  var OVERPASS_URLS = ['https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
+  // Public Overpass servers. The first is asked straight away; if it hasn't answered after a few
+  // seconds the next one is asked too, and whichever answers first wins.
+  var OVERPASS_URLS = [
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
+  ];
+  var OVERPASS_HEDGE_MS = 7000;    // wait this long before also asking the next server
+  var OVERPASS_MAX_MS = 40000;     // give up on any single server after this long
   var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
   // ---- Helpers ---------------------------------------------------------------------------
@@ -229,11 +236,12 @@
       if (!list.innerHTML) list.innerHTML = '<p class="finder-empty">Nothing to show here yet. Search a location or zoom in on a city to see gyms and studios.</p>';
       return;
     }
-    items.slice(0, 200).forEach(function (it) {
+    items.slice(0, 200).forEach(function (it, idx) {
       var d = it.data;
       var li = document.createElement('button');
       li.type = 'button';
       li.className = 'finder-item finder-item--' + it.kind;
+      li.style.setProperty('--i', Math.min(idx, 12));   // staggered entrance, capped so long lists stay snappy
       var sub = it.kind === 'trainer'
         ? [d.business, services(d).slice(0, 3).join(', ')].filter(Boolean).join(' · ')
         : (d.address || 'Gym / fitness studio');
@@ -273,19 +281,33 @@
   }
 
   var gymRequest = null;
-  // Query each Overpass server in turn, moving on if one errors or takes longer than 12 seconds.
-  function overpass(q, i, ctrl) {
-    var attempt = window.AbortController ? new AbortController() : null;
-    var timer = attempt ? setTimeout(function () { attempt.abort(); }, 12000) : null;
-    if (ctrl && attempt) ctrl.signal.addEventListener('abort', function () { attempt.abort(); });
-    return fetch(OVERPASS_URLS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: attempt && attempt.signal })
-      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error(r.status); return r.json(); })
-      .catch(function (err) {
-        clearTimeout(timer);
-        if (ctrl && ctrl.signal.aborted) throw err;
-        if (i + 1 < OVERPASS_URLS.length) return overpass(q, i + 1, ctrl);
-        throw err;
-      });
+  // Ask the Overpass servers with staggered starts; resolve with the first good answer.
+  function overpass(q, ctrl) {
+    return new Promise(function (resolve, reject) {
+      var attempts = [], failed = 0, done = false, next = 0, hedge = null;
+      function finish() { done = true; clearTimeout(hedge); attempts.forEach(function (a) { if (a) a.abort(); }); }
+      function launch() {
+        if (done || next >= OVERPASS_URLS.length) return;
+        var i = next++;
+        var a = window.AbortController ? new AbortController() : null;
+        attempts.push(a);
+        var timer = a ? setTimeout(function () { a.abort(); }, OVERPASS_MAX_MS) : null;
+        fetch(OVERPASS_URLS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: a && a.signal })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then(function (j) { clearTimeout(timer); if (done) return; finish(); resolve(j); })
+          .catch(function (err) {
+            clearTimeout(timer);
+            if (done) return;
+            failed++;
+            if (next < OVERPASS_URLS.length) { clearTimeout(hedge); launch(); }      // try the next one now
+            else if (failed >= OVERPASS_URLS.length) { finish(); reject(err); }
+          });
+        clearTimeout(hedge);
+        hedge = setTimeout(launch, OVERPASS_HEDGE_MS);
+      }
+      if (ctrl) ctrl.signal.addEventListener('abort', function () { if (!done) { finish(); reject(new Error('aborted')); } });
+      launch();
+    });
   }
   function loadGyms() {
     if (map.getZoom() < GYM_MIN_ZOOM) {
@@ -304,7 +326,7 @@
     if (gymRequest) gymRequest.abort();
     var ctrl = window.AbortController ? new AbortController() : null;
     gymRequest = ctrl;
-    overpass(q, 0, ctrl)
+    overpass(q, ctrl)
       .then(function (j) {
         gyms = (j.elements || []).map(function (e) {
           var t = e.tags || {};

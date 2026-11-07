@@ -23,6 +23,7 @@
 .finder-item { display: grid; gap: 3px; text-align: left; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid #5f6b7a; border-radius: 14px; background: var(--white); font: inherit; color: var(--ink); cursor: pointer; transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.2s; }
 .finder-item:hover { border-color: var(--accent); transform: translateX(3px); box-shadow: var(--shadow); }
 .finder-item:active { transform: scale(0.99); }
+.finder-item { animation: rise 0.45s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 35ms); }
 .finder-item--trainer { border-left-color: var(--accent); }
 .finder-item-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .finder-item-name { font: 700 1.05rem/1.25 var(--display); letter-spacing: -0.01em; }
@@ -41,6 +42,12 @@
 .finder-pin span { display: block; width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--white); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); background: #5f6b7a; }
 .finder-pin--trainer span { background: var(--accent); width: 24px; height: 24px; }
 .finder-pin--you span { background: #1a73e8; box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.25); }
+/* Pins drop onto the map; the "you are here" dot pings like a heartbeat. */
+.finder-pin span { animation: pin-drop 0.5s var(--spring) backwards; }
+.leaflet-marker-pane > :nth-child(3n+2) span { animation-delay: 60ms; }
+.leaflet-marker-pane > :nth-child(3n) span { animation-delay: 120ms; }
+.finder-pin--you::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: rgba(26, 115, 232, 0.35); animation: ping 2s var(--ease) infinite; pointer-events: none; }
+@keyframes pin-drop { from { opacity: 0; transform: translateY(-18px) scale(0.6); } to { opacity: 1; transform: none; } }
 
 /* Popups */
 .leaflet-container { font-family: var(--font); }
