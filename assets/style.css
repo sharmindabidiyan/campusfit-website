@@ -48,12 +48,12 @@ p { margin: 0; }
 .brand img { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; }
 .site-nav { display: flex; align-items: center; gap: 28px; }
 .site-nav ul { display: flex; gap: 24px; list-style: none; margin: 0; padding: 0; }
-.site-nav ul a { color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 500; padding: 6px 0; border-bottom: 2px solid transparent; }
+.site-nav ul a { color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 500; padding: 6px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
 .site-nav ul a:hover { color: var(--accent); }
 .site-nav ul a[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
 .nav-toggle { display: none; }
 
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
   .nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); cursor: pointer; }
   .bars, .bars::before, .bars::after { display: block; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; position: relative; transition: transform 0.2s ease; }
   .bars::before, .bars::after { content: ""; position: absolute; left: 0; }

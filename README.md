@@ -8,6 +8,7 @@ The source for [campusfit.ca](https://campusfit.ca). It's a plain HTML/CSS site 
 |---|---|
 | Home | `index.html` |
 | Services | `services/index.html` |
+| Find a Trainer | `find-a-trainer/index.html` |
 | Resources | `resources/index.html` |
 | Success Stories | `success-stories/index.html` |
 | Our Team | `team/index.html` |
@@ -16,7 +17,15 @@ The source for [campusfit.ca](https://campusfit.ca). It's a plain HTML/CSS site 
 
 - Styles (colours, fonts, spacing) are in `assets/style.css`. The colours are defined at the top of that file.
 - Photos are in `images/`. The handbook PDF is in `files/`.
-- The header and footer are repeated in every page. If you change a menu item or the footer, change it in all seven HTML files.
+- The header and footer are repeated in every page. If you change a menu item or the footer, change it in every HTML file.
+
+## Find a Trainer map
+
+- The map code is `assets/finder.js` and its styles are `assets/finder.css`. It uses Leaflet with OpenStreetMap tiles; no API key needed.
+- CampusFit trainers come from a Google Sheet. Paste the sheet tab's **Publish to web → CSV** link into `TRAINERS_CSV_URL` at the top of `assets/finder.js`.
+- Sheet columns (header names): Approved, Full name, Gym or business name, Address, Latitude, Longitude, Services, Rates, Phone, Contact email, Website, Instagram, Trains online, Bio, Photo URL. Only rows with Approved = Yes appear. Rows without Latitude/Longitude are placed by looking up the address.
+- The "Get listed" button goes to `SIGNUP_URL` in `assets/finder.js`.
+- Gyms and studios are loaded live from OpenStreetMap when the map is zoomed in.
 
 ## Making a change
 
