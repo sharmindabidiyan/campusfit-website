@@ -106,10 +106,22 @@
 
   // ---- Map -------------------------------------------------------------------------------
   var map = L.map('finder-map', { scrollWheelZoom: true, zoomControl: true }).setView(CANADA.center, window.innerWidth < 600 ? 3 : CANADA.zoom);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  // Street-map style (OpenFreeMap "Liberty" vector tiles). Falls back to standard OSM tiles if WebGL isn't available.
+  var baseLayer = null;
+  try {
+    if (L.maplibreGL && window.maplibregl && maplibregl.supported !== false) {
+      baseLayer = L.maplibreGL({
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        attributionControl: { customAttribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }
+      }).addTo(map);
+    }
+  } catch (e) { baseLayer = null; }
+  if (!baseLayer) {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+  }
 
   var icon = function (cls) {
     return L.divIcon({ className: 'finder-pin ' + cls, html: '<span></span>', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10] });
