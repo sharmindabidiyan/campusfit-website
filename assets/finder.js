@@ -281,10 +281,11 @@
   }
 
   var gymRequest = null;
-  // Ask the Overpass servers with staggered starts; resolve with the first good answer.
+  // Ask the Overpass servers with staggered starts; resolve with the first complete answer.
+  // A busy server can reply with a partial result plus an error remark; that only counts if nothing better arrives.
   function overpass(q, ctrl) {
     return new Promise(function (resolve, reject) {
-      var attempts = [], failed = 0, done = false, next = 0, hedge = null;
+      var attempts = [], failed = 0, done = false, next = 0, hedge = null, partial = null;
       function finish() { done = true; clearTimeout(hedge); attempts.forEach(function (a) { if (a) a.abort(); }); }
       function launch() {
         if (done || next >= OVERPASS_URLS.length) return;
@@ -294,13 +295,21 @@
         var timer = a ? setTimeout(function () { a.abort(); }, OVERPASS_MAX_MS) : null;
         fetch(OVERPASS_URLS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: a && a.signal })
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-          .then(function (j) { clearTimeout(timer); if (done) return; finish(); resolve(j); })
+          .then(function (j) {
+            clearTimeout(timer);
+            if (done) return;
+            if (j && j.remark && /error|timed out|memory/i.test(j.remark)) {
+              if (!partial || (j.elements || []).length > (partial.elements || []).length) partial = j;
+              throw new Error('partial result');
+            }
+            finish(); resolve(j);
+          })
           .catch(function (err) {
             clearTimeout(timer);
             if (done) return;
             failed++;
             if (next < OVERPASS_URLS.length) { clearTimeout(hedge); launch(); }      // try the next one now
-            else if (failed >= OVERPASS_URLS.length) { finish(); reject(err); }
+            else if (failed >= OVERPASS_URLS.length) { finish(); if (partial) resolve(partial); else reject(err); }
           });
         clearTimeout(hedge);
         hedge = setTimeout(launch, OVERPASS_HEDGE_MS);
@@ -342,7 +351,13 @@
         }).filter(function (g) { return g.lat != null && g.lng != null; });
         render();
         var n = gyms.length, tn = visibleTrainers().filter(function (t) { return b.contains([t.lat, t.lng]); }).length;
-        setStatus(tn + ' CampusFit trainer' + (tn === 1 ? '' : 's') + ' and ' + n + (n >= GYM_LIMIT ? '+' : '') + ' gym' + (n === 1 ? '' : 's') + ' in this area.');
+        var summary = tn + ' CampusFit trainer' + (tn === 1 ? '' : 's') + ' and ' + n + (n >= GYM_LIMIT ? '+' : '') + ' gym' + (n === 1 ? '' : 's') + ' in this area.';
+        if (j.remark && /error|timed out|memory/i.test(j.remark)) {   // partial answer from a busy server: let people retry for the full list
+          lastGymBounds = null;
+          $('finder-area').hidden = false;
+          summary += ' Some gyms may be missing. Tap "Search this area" to try again.';
+        }
+        setStatus(summary);
       })
       .catch(function () {
         if (ctrl && ctrl.signal.aborted) return;   // a newer search replaced this one
