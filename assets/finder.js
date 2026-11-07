@@ -209,8 +209,11 @@
     });
     var list = $('finder-list');
     list.innerHTML = '';
+    if ($('show-trainers').checked && !trainers.length) {
+      list.innerHTML = '<p class="finder-empty">No CampusFit trainers are listed yet. Gyms and studios appear when you search a location or zoom in on a city.</p>';
+    }
     if (!items.length) {
-      list.innerHTML = '<p class="finder-empty">No results here yet. Search a location or zoom in to see gyms.</p>';
+      if (!list.innerHTML) list.innerHTML = '<p class="finder-empty">Nothing to show here yet. Search a location or zoom in on a city to see gyms and studios.</p>';
       return;
     }
     items.slice(0, 200).forEach(function (it) {
@@ -256,12 +259,13 @@
       .catch(function () { setStatus('Could not load the trainer list right now. Gyms still show when you search.'); });
   }
 
+  var gymRequest = null;
   function loadGyms() {
     if (map.getZoom() < GYM_MIN_ZOOM) {
-      setStatus('Zoom in closer to see gyms and fitness studios.');
+      setStatus('Zoom in on a city to see gyms and fitness studios.');
       return;
     }
-    var b = map.getBounds();
+    var b = map.getBounds().pad(0.3);   // load a margin around the view so small pans don't refetch
     var bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(function (n) { return n.toFixed(5); }).join(',');
     var q = '[out:json][timeout:25];(' +
       'nwr["leisure"="fitness_centre"](' + bbox + ');' +
@@ -270,7 +274,9 @@
     setStatus('Loading gyms in this area…');
     lastGymBounds = b;
     $('finder-area').hidden = true;
-    fetch(OVERPASS_URL, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+    if (gymRequest) gymRequest.abort();
+    gymRequest = window.AbortController ? new AbortController() : null;
+    fetch(OVERPASS_URL, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: gymRequest && gymRequest.signal })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (j) {
         gyms = (j.elements || []).map(function (e) {
@@ -289,7 +295,12 @@
         var n = gyms.length, tn = visibleTrainers().filter(function (t) { return b.contains([t.lat, t.lng]); }).length;
         setStatus(tn + ' CampusFit trainer' + (tn === 1 ? '' : 's') + ' and ' + n + (n >= GYM_LIMIT ? '+' : '') + ' gym' + (n === 1 ? '' : 's') + ' in this area.');
       })
-      .catch(function () { setStatus('Gym listings are busy right now. Try "Search this area" again in a minute.'); });
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        lastGymBounds = null;
+        $('finder-area').hidden = false;
+        setStatus('Gym listings are busy right now. Tap "Search this area" to try again.');
+      });
   }
 
   function goTo(lat, lng, label) {
@@ -297,7 +308,6 @@
     if (youMarker) youMarker.remove();
     youMarker = L.marker(origin, { icon: icon('finder-pin--you'), title: label, keyboard: false, zIndexOffset: 2000 })
       .bindPopup('<div class="pop"><p class="pop-kind">Your search</p><h3>' + esc(label) + '</h3></div>').addTo(map);
-    map.once('moveend', loadGyms);
     map.flyTo(origin, 13, { duration: 0.8 });
   }
 
@@ -328,9 +338,16 @@
   $('finder-area').addEventListener('click', function () {
     var c = map.getCenter(); origin = [c.lat, c.lng]; loadGyms();
   });
+  var moveTimer = null;
   map.on('moveend', function () {
-    var moved = !lastGymBounds || !lastGymBounds.contains(map.getBounds());
-    $('finder-area').hidden = !(moved && map.getZoom() >= GYM_MIN_ZOOM);
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(function () {
+      if (map.getZoom() < GYM_MIN_ZOOM) {
+        if (!gyms.length) setStatus('Zoom in on a city, or search a location, to see gyms and fitness studios.');
+        return;
+      }
+      if (!lastGymBounds || !lastGymBounds.contains(map.getBounds())) loadGyms();
+    }, 500);
   });
   ['show-trainers', 'show-gyms', 'finder-service'].forEach(function (id) { $(id).addEventListener('change', render); });
   $('finder-signup').href = SIGNUP_URL;
