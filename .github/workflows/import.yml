@@ -1,0 +1,47 @@
+name: Import site files
+# One-time setup: unpacks site.tar.gz and copies the photos + handbook PDF
+# from the old WordPress site into this repository. Safe to re-run.
+on:
+  push:
+    paths: ["site.tar.gz", ".github/workflows/import.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack site bundle
+        run: |
+          if [ -f site.tar.gz ]; then tar -xzf site.tar.gz && git rm -q site.tar.gz; fi
+      - name: Copy photos and handbook from WordPress
+        run: |
+          set -e
+          mkdir -p images files
+          get() {
+            [ -s "$1" ] && return 0
+            for host in jiayiwu20062006-hswjg.wordpress.com/wp-content/uploads jiayiwu20062006-hswjg.files.wordpress.com; do
+              if curl -fsSL --retry 3 -A "Mozilla/5.0 (CampusFit site import)" -o "$1" "https://$host/$2"; then echo "got $1"; return 0; fi
+            done
+            echo "::error::could not download $2"; return 1
+          }
+          get images/sharmin.jpg "2025/10/img_0841-edited-1.jpg?w=600"
+          get images/jiayi.jpg "2025/10/img_9956.jpeg?w=600"
+          get images/akpotobore.jpg "2025/10/img_0676.jpg?w=600"
+          get images/yehonatan.jpg "2026/02/img_1024.jpg?w=800"
+          get images/sharmin-before.jpg "2025/10/img_0633-1.jpg?w=900"
+          get images/sharmin-after.jpg "2025/10/img_4264.jpg?w=900"
+          get images/yehonatan-before.jpg "2026/01/untitled-design-55-1.jpeg?w=900"
+          get images/yehonatan-after.png "2026/01/img_4090-1.png?w=900"
+          get images/gym.png "2025/10/screen-shot-2017-04-05-at-6.03.31-pm-1.png?w=1400"
+          get images/logo.jpeg "2026/02/img_0320.jpeg?w=600"
+          get images/icon.jpeg "2026/02/cropped-img_0320.jpeg?w=512"
+          get files/campusfit-handbook.pdf "2025/10/campusfithandbook.pdf"
+          file images/* files/*
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing to commit"; else git commit -m "Import site files and photos" && git push; fi
