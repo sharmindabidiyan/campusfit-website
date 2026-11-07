@@ -121,6 +121,7 @@
   var trainers = [];
   var gyms = [];
   var lastGymBounds = null;
+  var areaName = '';           // city/town of the last searched place, used for Google search links
 
   // ---- Popups ----------------------------------------------------------------------------
   function contactLinks(t) {
@@ -155,6 +156,11 @@
       (contact ? '<p class="pop-contact">' + contact + '</p>' : '') +
       '</div>';
   }
+  function googleSearch(g) {
+    var where = g.address || areaName || (g.lat.toFixed(4) + ',' + g.lng.toFixed(4));
+    var q = g.name + ' ' + where;
+    return 'https://www.google.com/search?q=' + encodeURIComponent(q);
+  }
   function gymPopup(g) {
     var w = safeUrl(g.website);
     return '<div class="pop">' +
@@ -165,7 +171,7 @@
       '<p class="pop-contact">' + [
         g.phone ? '<a href="tel:' + esc(g.phone.replace(/[^\d+]/g, '')) + '">' + esc(g.phone) + '</a>' : '',
         w ? '<a href="' + esc(w) + '" target="_blank" rel="noopener">Website</a>' : '',
-        '<a href="https://www.openstreetmap.org/' + g.osmType + '/' + g.osmId + '" target="_blank" rel="noopener">OpenStreetMap</a>'
+        '<a href="' + esc(googleSearch(g)) + '" target="_blank" rel="noopener">Search on Google</a>'
       ].filter(Boolean).join(' · ') + '</p>' +
       '<p class="pop-note">Listing from OpenStreetMap. Rates and trainer availability: contact the gym.</p>' +
       '</div>';
@@ -301,9 +307,11 @@
     var q = $('finder-q').value.trim();
     if (!q) return;
     setStatus('Searching for “' + q + '”…');
-    fetch(NOMINATIM_URL + '?format=jsonv2&limit=1&countrycodes=ca&q=' + encodeURIComponent(q))
+    fetch(NOMINATIM_URL + '?format=jsonv2&limit=1&countrycodes=ca&addressdetails=1&q=' + encodeURIComponent(q))
       .then(function (r) { return r.json(); })
       .then(function (j) {
+        var a = j && j[0] && j[0].address || {};
+        areaName = [a.city || a.town || a.village || a.municipality || '', a.state || ''].filter(Boolean).join(', ');
         if (!j || !j[0]) { setStatus('No match for “' + q + '” in Canada. Try a city, street address or postal code.'); return; }
         goTo(parseFloat(j[0].lat), parseFloat(j[0].lon), j[0].display_name.split(',').slice(0, 3).join(','));
       })
@@ -313,6 +321,7 @@
     if (!navigator.geolocation) { setStatus('Your browser can’t share its location. Type a city or postal code instead.'); return; }
     setStatus('Finding your location…');
     navigator.geolocation.getCurrentPosition(function (p) {
+      areaName = '';
       goTo(p.coords.latitude, p.coords.longitude, 'Your location');
     }, function () { setStatus('Location access was blocked. Type a city or postal code instead.'); }, { timeout: 10000 });
   });
