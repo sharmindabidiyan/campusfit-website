@@ -11,7 +11,8 @@
   var CANADA = { center: [56.1, -96.3], zoom: 4 };
   var GYM_MIN_ZOOM = 11;      // gyms load only when this zoomed in (keeps Overpass queries small)
   var GYM_LIMIT = 150;
-  var OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+  // Public Overpass servers, tried in order (the main overpass-api.de server is often overloaded).
+  var OVERPASS_URLS = ['https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
   var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
   // ---- Helpers ---------------------------------------------------------------------------
@@ -272,6 +273,20 @@
   }
 
   var gymRequest = null;
+  // Query each Overpass server in turn, moving on if one errors or takes longer than 12 seconds.
+  function overpass(q, i, ctrl) {
+    var attempt = window.AbortController ? new AbortController() : null;
+    var timer = attempt ? setTimeout(function () { attempt.abort(); }, 12000) : null;
+    if (ctrl && attempt) ctrl.signal.addEventListener('abort', function () { attempt.abort(); });
+    return fetch(OVERPASS_URLS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: attempt && attempt.signal })
+      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(function (err) {
+        clearTimeout(timer);
+        if (ctrl && ctrl.signal.aborted) throw err;
+        if (i + 1 < OVERPASS_URLS.length) return overpass(q, i + 1, ctrl);
+        throw err;
+      });
+  }
   function loadGyms() {
     if (map.getZoom() < GYM_MIN_ZOOM) {
       setStatus('Zoom in on a city to see gyms and fitness studios.');
@@ -287,9 +302,9 @@
     lastGymBounds = b;
     $('finder-area').hidden = true;
     if (gymRequest) gymRequest.abort();
-    gymRequest = window.AbortController ? new AbortController() : null;
-    fetch(OVERPASS_URL, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: gymRequest && gymRequest.signal })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    var ctrl = window.AbortController ? new AbortController() : null;
+    gymRequest = ctrl;
+    overpass(q, 0, ctrl)
       .then(function (j) {
         gyms = (j.elements || []).map(function (e) {
           var t = e.tags || {};
@@ -307,8 +322,8 @@
         var n = gyms.length, tn = visibleTrainers().filter(function (t) { return b.contains([t.lat, t.lng]); }).length;
         setStatus(tn + ' CampusFit trainer' + (tn === 1 ? '' : 's') + ' and ' + n + (n >= GYM_LIMIT ? '+' : '') + ' gym' + (n === 1 ? '' : 's') + ' in this area.');
       })
-      .catch(function (err) {
-        if (err && err.name === 'AbortError') return;
+      .catch(function () {
+        if (ctrl && ctrl.signal.aborted) return;   // a newer search replaced this one
         lastGymBounds = null;
         $('finder-area').hidden = false;
         setStatus('Gym listings are busy right now. Tap "Search this area" to try again.');

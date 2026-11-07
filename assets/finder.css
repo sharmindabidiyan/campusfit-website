@@ -1,10 +1,8 @@
 /* CampusFit — Find a Trainer page */
-.hero--compact { padding-top: clamp(40px, 5vw, 64px); padding-bottom: clamp(32px, 4vw, 48px); }
-.hero--compact .display { font-size: clamp(34px, 4.4vw, 56px); }
-.finder-section { padding-top: clamp(28px, 4vw, 40px); }
+.finder-section { padding-top: clamp(32px, 4vw, 48px); }
 .finder-search { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-.finder-search input { flex: 1 1 260px; min-width: 0; padding: 13px 18px; border: 1px solid var(--line); border-radius: 999px; font: 400 16px/1.2 var(--font); color: var(--ink); background: var(--white); }
-.finder-search input:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.finder-search input { flex: 1 1 260px; min-width: 0; min-height: 50px; padding: 13px 20px; border: 1.5px solid var(--line); border-radius: 999px; font: 500 16px/1.2 var(--font); color: var(--ink); background: var(--white); box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s; }
+.finder-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(245, 179, 53, 0.45); }
 .finder-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-bottom: 10px; font-size: 15px; }
 .finder-filters label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .finder-filters input { width: 18px; height: 18px; accent-color: var(--accent); }
@@ -22,11 +20,12 @@
 .finder-area[hidden] { display: none; }
 .finder-list { order: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
 .finder-empty { color: var(--muted); font-size: 15px; padding: 16px; border: 1px dashed var(--line); border-radius: 14px; }
-.finder-item { display: grid; gap: 3px; text-align: left; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid #5f6b7a; border-radius: 14px; background: var(--white); font: inherit; color: var(--ink); cursor: pointer; }
-.finder-item:hover { border-color: var(--accent); }
+.finder-item { display: grid; gap: 3px; text-align: left; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid #5f6b7a; border-radius: 14px; background: var(--white); font: inherit; color: var(--ink); cursor: pointer; transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.2s; }
+.finder-item:hover { border-color: var(--accent); transform: translateX(3px); box-shadow: var(--shadow); }
+.finder-item:active { transform: scale(0.99); }
 .finder-item--trainer { border-left-color: var(--accent); }
 .finder-item-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-.finder-item-name { font-weight: 600; font-size: 16px; }
+.finder-item-name { font: 700 1.05rem/1.25 var(--display); letter-spacing: -0.01em; }
 .finder-item-dist { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .finder-item-kind { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .finder-item--gym .finder-item-kind { color: #5f6b7a; }
